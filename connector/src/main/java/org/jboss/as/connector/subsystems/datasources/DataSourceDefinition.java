@@ -296,6 +296,39 @@ public class DataSourceDefinition extends SimpleResourceDefinition {
     }
 
 
+    static void registerTransformers120(ResourceTransformationDescriptionBuilder parentBuilder) {
+        ResourceTransformationDescriptionBuilder builder = parentBuilder.addChildResource(PATH_DATASOURCE);
+        builder.getAttributeBuilder()
+                .setDiscard(new DiscardAttributeChecker.DiscardAttributeValueChecker(new ModelNode(false)), CONNECTABLE)
+                .setDiscard(new DiscardAttributeChecker.DiscardAttributeValueChecker(false, false, new ModelNode(true)), STATISTICS_ENABLED)
+                .addRejectCheck(new RejectAttributeChecker.DefaultRejectAttributeChecker() {
+
+                    @Override
+                    public String getRejectionLogMessage(Map<String, ModelNode> attributes) {
+                        return ConnectorLogger.ROOT_LOGGER.rejectAttributesMustBeTrue(attributes.keySet());
+                    }
+
+                    @Override
+                    protected boolean rejectAttribute(PathAddress address, String attributeName, ModelNode attributeValue,
+                                                      TransformationContext context) {
+                        //This will not get called if it was discarded, so reject if it is undefined (default==false) or if defined and != 'true'
+                        return !attributeValue.isDefined() || !attributeValue.asString().equals("true");
+                    }
+                }, STATISTICS_ENABLED)
+                .setDiscard(new DiscardAttributeChecker.DefaultDiscardAttributeChecker() {
+                    @Override
+                    protected boolean isValueDiscardable(PathAddress address, String attributeName, ModelNode attributeValue, TransformationContext context) {
+                        return attributeValue.equals(new ModelNode(false));
+                    }
+                }, TRACKING)
+                .addRejectCheck(RejectAttributeChecker.DEFINED, TRACKING).end()
+                //We're rejecting operations when statistics-enabled=false, so let it through in the enable/disable ops which do not use that attribute
+                .addOperationTransformationOverride(DATASOURCE_ENABLE.getName())
+                .end()
+                .addOperationTransformationOverride(DATASOURCE_DISABLE.getName())
+                .end();
+    }
+
     static void registerTransformers200(ResourceTransformationDescriptionBuilder parentBuilder) {
         ResourceTransformationDescriptionBuilder builder = parentBuilder.addChildResource(PATH_DATASOURCE);
         builder.getAttributeBuilder()
